@@ -139,12 +139,16 @@ try{var f=new File([blob],name,{type:type});if(navigator.canShare&&navigator.can
 dl(name,text,type);toast("تم تنزيل الملف – ابحث عنه في مجلد التنزيلات");return true}
 async function expJ(){var d=JSON.parse(JSON.stringify(D));d.lastBackup=new Date().toISOString();var ok=await saveFile("attendance-backup-"+key(new Date())+".json",JSON.stringify(d),"application/json");if(ok){D.lastBackup=d.lastBackup;save();render()}}
 function saveS(){
-if(!D.students.length){toast("لا يوجد طلاب");return}
+if(!D.students.length){toast("لا يوجد طلاب");return Promise.resolve(false)}
 var d=S[cur],c=D.att[sk()]||{},n=cur+1,P=0,A=0,L=0,U=0,L2=[];
 D.students.forEach(function(s,i){var x=c[s.id];if(x=="P")P++;else if(x=="A")A++;else if(x=="L")L++;else U++;L2.push((i+1)+". "+s.name+" : "+(x?LBL[x]:"غير مسجّل"))});
 var t="معهد زاد الدعاة\r\nالحصة رقم "+n+" – "+longD(d)+"\r\n------------------------------\r\n"+L2.join("\r\n")+"\r\n------------------------------\r\nحاضر: "+P+"  |  غائب: "+A+"  |  متأخر: "+L+(U?"  |  غير مسجّل: "+U:"")+"\r\nعدد الطلاب: "+D.students.length+"\r\n";
 var name="الحصة رقم "+n+" بتاريخ "+d.getDate()+"-"+(d.getMonth()+1)+"-"+d.getFullYear()+".txt";
-saveFile(name,"\ufeff"+t,"text/plain")}
+return saveFile(name,"\ufeff"+t,"text/plain")}
+function finishS(){var c=D.att[sk()]||{},u=D.students.filter(function(x){return !c[x.id]}).length;
+if(u>0)ask("لم يتم تسجيل "+u+" طالب بعد. هل تريد الحفظ على أي حال؟ سيظهر «غير مسجّل» بجانب أسمائهم.","حفظ",doSave);else doSave()}
+function doSave(){saveS().then(function(ok){if(ok){D.saved=D.saved||{};D.saved[sk()]=new Date().toISOString();save();render()}})}
+function fmtT(iso){var d=new Date(iso);return d.getDate()+" "+MON[d.getMonth()]+" – "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function expC(){if(!keys().length){toast("لا توجد بيانات لحفظها بعد");return}saveFile("attendance-"+key(new Date())+".csv","\ufeff"+csv(),"text/csv")}
 function impJ(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){var d;try{d=JSON.parse(r.result);if(!d||!Array.isArray(d.students)||typeof d.att!=="object")throw 0}catch(e){openM('<p>هذا الملف ليس نسخة احتياطية صالحة.</p><div class="act"><button class="btn pri" onclick="closeM()">حسناً</button></div>');return}
 ask("هل تريد استبدال البيانات على هذا الهاتف بالنسخة الاحتياطية ("+d.students.length+" طالب)؟","استعادة",function(){D=d;save();render();toast("تمت استعادة النسخة")},true)};r.readAsText(f);inp.value=""}
@@ -159,9 +163,12 @@ h+='<select onchange="jump(this.value)">'+S.map(function(d,i){return'<option val
 if(!D.students.length)h+='<div class="empty">لا يوجد طلاب بعد.<br>اذهب إلى تبويب «الطلاب» لإضافة قائمة الصف.</div>';
 else{var P=0,A=0,L=0;D.students.forEach(function(s){var x=c[s.id];if(x=="P")P++;else if(x=="A")A++;else if(x=="L")L++});
 h+='<div class="sum"><span><b style="color:var(--p)">'+P+'</b>حاضر</span><span><b style="color:var(--a)">'+A+'</b>غائب</span><span><b style="color:var(--l)">'+L+'</b>متأخر</span><span><b>'+(D.students.length-P-A-L)+'</b>غير مسجّل</span></div>';
-h+='<div class="act"><button class="btn pri" onclick="allP()">الجميع حاضر</button><button class="btn" onclick="clearW()">مسح الحصة</button></div><div class="act" style="margin-top:0"><button class="btn pri" onclick="saveS()">💾 حفظ الحصة كملف نصي</button></div>';
+h+='<div class="act"><button class="btn pri" onclick="allP()">الجميع حاضر</button><button class="btn" onclick="clearW()">مسح الحصة</button></div>';
 D.students.forEach(function(s){var x=c[s.id];h+='<div class="row st"><div class="nm">'+esc(s.name)+'</div><div class="bt">'+["P","A","L"].map(function(m){return'<button class="'+m+(x==m?" on":"")+'" onclick="mark(\''+s.id+'\',\''+m+'\')">'+LBL[m]+'</button>'}).join("")+'</div></div>'});
-h+='<div class="hint">يُحفظ تلقائياً على هذا الهاتف. علامة ✓ في القائمة تعني أن الحصة مسجّلة.</div>'}
+var sv=D.saved&&D.saved[sk()];
+h+='<div class="act"><button class="btn pri" style="padding:16px;font-size:18px" onclick="finishS()">✔ حفظ الحصة</button></div>';
+h+='<div class="hint" style="text-align:center">'+(sv?"✓ آخر حفظ لهذه الحصة: "+fmtT(sv):"اضغط «حفظ الحصة» عند الانتهاء لإنشاء ملف نصي بأسماء الطلاب وحضورهم.")+'</div>';
+h+='<div class="hint">كل تسجيل يُحفظ تلقائياً على هذا الهاتف أيضاً. علامة ✓ في القائمة تعني أن الحصة مسجّلة.</div>'}
 }else if(tab==2){
 var ks=keys();
 if(!D.students.length||!ks.length)h+='<div class="empty">لم يُسجَّل أي حضور بعد.</div>';
